@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="botdrive",
-    version="0.1.0",
+    version="0.2.0",
     description='Class to handle google drive for RPA',
     author='Ben-Hur P. B. Santos',
     author_email='botlorien@gmail.com',

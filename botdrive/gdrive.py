@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import time
+from datetime import datetime, timedelta
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -9,7 +10,6 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 from google.auth.transport.requests import Request
 from priority_classes.decorators.decorators import time_out
-from datetime import datetime
 
 
 class Gdrive:
@@ -113,6 +113,52 @@ class Gdrive:
         while self.list_all_files():
             [self.delete_file(item['id']) for item in self.list_all_files()]
         logging.info(f"All files deleted...")
+
+    from datetime import datetime, timedelta
+
+    def delete_files_older_than(self, days=30):
+        """
+        Deleta todos os arquivos criados há mais de 'days' dias.
+        """
+        # Calcula a data de corte
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_iso = cutoff_date.isoformat() + 'Z'  # Formato esperado pela API
+
+        # Monta a query para buscar arquivos criados antes da data de corte
+        query = f"createdTime < '{cutoff_iso}' and trashed=false"
+
+        # Faz a listagem inicial
+        response = self.service.files().list(
+            q=query,
+            fields="nextPageToken, files(id, name, createdTime)"
+        ).execute()
+
+        files = response.get('files', [])
+
+        # Deleta todos os arquivos retornados
+        for file_ in files:
+            file_id = file_['id']
+            file_name = file_['name']
+            file_created = file_['createdTime']
+
+            self.delete_file(file_id)
+            logging.info(f"Arquivo '{file_name}' (criado em {file_created}) foi deletado.")
+
+        # Se houver mais páginas de resultados, processa também
+        while 'nextPageToken' in response:
+            page_token = response['nextPageToken']
+            response = self.service.files().list(
+                q=query,
+                pageToken=page_token,
+                fields="nextPageToken, files(id, name, createdTime)"
+            ).execute()
+            files = response.get('files', [])
+            for file_ in files:
+                file_id = file_['id']
+                file_name = file_['name']
+                file_created = file_['createdTime']
+                self.delete_file(file_id)
+                logging.info(f"Arquivo '{file_name}' (criado em {file_created}) foi deletado.")
 
     @time_out(time_out=3)
     def list_all_files(self):
